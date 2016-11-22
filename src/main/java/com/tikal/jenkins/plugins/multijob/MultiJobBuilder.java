@@ -1,6 +1,43 @@
 package com.tikal.jenkins.plugins.multijob;
 
-import hudson.EnvVars;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+
+import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.lib.envinject.EnvInjectLogger;
+import org.jenkinsci.plugins.envinject.EnvInjectBuilder;
+import org.jenkinsci.plugins.envinject.EnvInjectBuilderContributionAction;
+import org.jenkinsci.plugins.envinject.service.EnvInjectActionSetter;
+import org.jenkinsci.plugins.envinject.service.EnvInjectEnvVars;
+import org.jenkinsci.plugins.envinject.service.EnvInjectVariableGetter;
+import org.jenkinsci.plugins.tokenmacro.TokenMacro;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
+
 import com.tikal.jenkins.plugins.multijob.MultiJobBuild.SubBuild;
 import com.tikal.jenkins.plugins.multijob.PhaseJobsConfig.KillPhaseOnJobResultCondition;
 import com.tikal.jenkins.plugins.multijob.counters.CounterHelper;
@@ -30,44 +67,9 @@ import hudson.scm.ChangeLogSet;
 import hudson.scm.ChangeLogSet.Entry;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
+import hudson.util.FormValidation;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
-import org.jenkinsci.lib.envinject.EnvInjectLogger;
-import org.jenkinsci.plugins.envinject.EnvInjectBuilder;
-import org.jenkinsci.plugins.envinject.EnvInjectBuilderContributionAction;
-import org.jenkinsci.plugins.envinject.service.EnvInjectActionSetter;
-import org.jenkinsci.plugins.envinject.service.EnvInjectEnvVars;
-import org.jenkinsci.plugins.envinject.service.EnvInjectVariableGetter;
-import org.jenkinsci.plugins.tokenmacro.TokenMacro;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.regex.Pattern;
-
-import org.apache.commons.lang.StringUtils;
 public class MultiJobBuilder extends Builder implements DependecyDeclarer {
     /**
      * The name of the parameter in the build.getBuildVariables() to enable the job build, regardless
@@ -267,12 +269,54 @@ public class MultiJobBuilder extends Builder implements DependecyDeclarer {
             }
         }
 
+	    boolean runSubJobsUsingExlusiveMode = false;
+	    List<AbstractProject> exclusiveJobs = new ArrayList<>();
+	    if (useExclusivePath(thisProject, multiJobBuild)) {
+		    List<String> remainingPathsAfterSubJobProcessing = getAffectedPaths(multiJobBuild);
+		    List<String> removedPaths = new ArrayList<>();
+		    for (Map.Entry<PhaseSubJob,PhaseJobsConfig> entry : phaseSubJobs.entrySet()) {
+			    AbstractProject subJob = entry.getKey().job;
+			    for (String removedPath : removedPaths) {
+				    if (jobPathIsMatching(entry, removedPath)) {
+					    throw new RuntimeException(String.format("Job %s matched a path already removed: %s. Paths must be unique for each job!", subJob, removedPath));
+				    }
+			    }
+			    boolean removed = false;
+			    Iterator<String> iterator = remainingPathsAfterSubJobProcessing.iterator();
+			    while (iterator.hasNext()) {
+				    String path = iterator.next();
+				    if (jobPathIsMatching(entry, path)) {
+					    removedPaths.add(path);
+					    iterator.remove();
+					    removed = true;
+				    }
+			    }
+			    if (removed) {
+				    exclusiveJobs.add(subJob);
+			    }
+		    }
+		    if (remainingPathsAfterSubJobProcessing.isEmpty()){
+			    runSubJobsUsingExlusiveMode = true;
+			    listener.getLogger().println("Exclusive path is active for this build");
+		    }else{
+			    listener.getLogger().println("Exclusive path will not be used, unhandled paths found.");
+		    }
+	    }
+
         List<SubTask> subTasks = new ArrayList<SubTask>();
         int index = 0;
         for (PhaseSubJob phaseSubJob : phaseSubJobs.keySet()) {
             index++;
 
             AbstractProject subJob = phaseSubJob.job;
+
+            if (runSubJobsUsingExlusiveMode) {
+                if (!exclusiveJobs.contains(subJob)) {
+                    listener.getLogger().println(String.format("Exclusive path: Skipping %s. Project is not affected by the SCM changes in this build.", subJob.getName()));
+                    phaseCounters.processSkipped();
+                    continue;
+                }
+            }
 
             // To be coherent with final results, we need to do this here.
             PhaseJobsConfig phaseConfig = phaseSubJobs.get(phaseSubJob);
@@ -297,7 +341,7 @@ public class MultiJobBuilder extends Builder implements DependecyDeclarer {
 
             if (phaseConfig.getEnableCondition() && phaseConfig.getCondition() != null) {
                 // if SCM has changes or set to always build and condition should always be evaluated
-                if(jobStatus.isBuildable() && !phaseConfig.isApplyConditionOnlyIfNoSCMChanges()) {
+                if (jobStatus.isBuildable() && !phaseConfig.isApplyConditionOnlyIfNoSCMChanges()) {
                     if (evalCondition(phaseConfig.getCondition(), build, listener)) {
                         listener.getLogger().println(String.format("Triggering %s. Condition was evaluated to true.", subJob.getName()));
                         conditionExistsAndEvaluatedToTrue = true;
@@ -308,7 +352,7 @@ public class MultiJobBuilder extends Builder implements DependecyDeclarer {
                     }
                 }
                 // if SCM has no changes but condition is set to be evaluated in this case
-                else if(!jobStatus.isBuildable() && phaseConfig.isApplyConditionOnlyIfNoSCMChanges()) {
+                else if (!jobStatus.isBuildable() && phaseConfig.isApplyConditionOnlyIfNoSCMChanges()) {
                     if (evalCondition(phaseConfig.getCondition(), build, listener)) {
                         listener.getLogger().println(String.format("Triggering %s. Condition was evaluated to true.", subJob.getName()));
                         conditionExistsAndEvaluatedToTrue = true;
@@ -319,7 +363,7 @@ public class MultiJobBuilder extends Builder implements DependecyDeclarer {
                     }
                 }
                 // no SCM changes and no condition evaluation
-                else if(!jobStatus.isBuildable() && !phaseConfig.isApplyConditionOnlyIfNoSCMChanges()) {
+                else if (!jobStatus.isBuildable() && !phaseConfig.isApplyConditionOnlyIfNoSCMChanges()) {
                     listener.getLogger().println(String.format("Skipping %s. No SCM changes found and condition is skipped.", subJob.getName()));
                     phaseCounters.processSkipped();
                     continue;
@@ -333,10 +377,10 @@ public class MultiJobBuilder extends Builder implements DependecyDeclarer {
                         conditionExistsAndEvaluatedToTrue = true;
                     }
                 }
-            // This is needed because if no condition to eval, the legacy buildOnlyIfSCMChanges feature is still available,
-            // so we don't need to change our job configuration.
+                // This is needed because if no condition to eval, the legacy buildOnlyIfSCMChanges feature is still available,
+                // so we don't need to change our job configuration.
             }
-            if ( ! jobStatus.isBuildable() && !conditionExistsAndEvaluatedToTrue) {
+            if (!jobStatus.isBuildable() && !conditionExistsAndEvaluatedToTrue) {
                 phaseCounters.processSkipped();
                 continue;
             }
@@ -443,6 +487,76 @@ public class MultiJobBuilder extends Builder implements DependecyDeclarer {
             }
         }
         return true;
+    }
+
+    private boolean iterateSubjobsAndPrepareExlusiveMode(MultiJobBuild multiJobBuild, MultiJobProject thisProject, Map<PhaseSubJob, PhaseJobsConfig> phaseSubJobs, List<AbstractProject> exclusiveJobs) {
+        if (useExclusivePath(thisProject, multiJobBuild)) {
+            System.out.println("Exclusive path active for this build");
+            List<String> remainingPathsAfterSubJobProcessing = getAffectedPaths(multiJobBuild);
+            List<String> removedPaths = new ArrayList<>();
+            for (Map.Entry<PhaseSubJob,PhaseJobsConfig> entry : phaseSubJobs.entrySet()) {
+                AbstractProject subJob = entry.getKey().job;
+                for (String removedPath : removedPaths) {
+                    if (jobPathIsMatching(entry, removedPath)) {
+                        throw new RuntimeException(String.format("Job %s matched a path already removed: %s. Paths must be unique for each job!", subJob, removedPath));
+                    }
+                }
+                boolean removed = false;
+                Iterator<String> iterator = remainingPathsAfterSubJobProcessing.iterator();
+                while (iterator.hasNext()) {
+                    String path = iterator.next();
+	                System.out.println("Checking change in "+path);
+	                if (jobPathIsMatching(entry, path)) {
+                        System.out.println(subJob + " matched the change");
+                        removedPaths.add(path);
+                        iterator.remove();
+                        removed = true;
+                    }
+                }
+                if (removed) {
+                    exclusiveJobs.add(subJob);
+                }
+            }
+            return remainingPathsAfterSubJobProcessing.isEmpty();
+        }
+        return false;
+    }
+
+    private boolean jobPathIsMatching(Map.Entry<PhaseSubJob, PhaseJobsConfig> entry, String path) {
+        return path != null && !path.trim().isEmpty() && hasExclusivePath(entry.getValue()) && getExclusivePath(entry.getValue()).matcher(path).matches();
+    }
+
+    private List<String> getAffectedPaths(MultiJobBuild build) {
+        List<String> affectedPaths = new ArrayList<>();
+        for (ChangeLogSet<? extends Entry> changeSet : build.getChangeSets()) {
+	        for (Entry entry : changeSet) {
+                affectedPaths.addAll(entry.getAffectedPaths());
+            }
+        }
+        return affectedPaths;
+    }
+
+    private boolean useExclusivePath(MultiJobProject project, MultiJobBuild build) {
+        if (!project.getUseExclusivePath()){
+	        return false;
+        }
+        if (build.getChangeSets().isEmpty()) {
+	        System.out.println("Exclusive path active but no changes detected");
+	        return false;
+        }
+        return true;
+    }
+
+    private boolean hasExclusivePath(PhaseJobsConfig config) {
+        return config.getEnableExclusivePath() && config.getExclusivePathPattern()!=null;
+    }
+
+    private boolean isPresent(Object object) {
+        return object != null;
+    }
+
+    private Pattern getExclusivePath(PhaseJobsConfig config) {
+        return config.getExclusivePathPattern();
     }
 
     public final class SubJobWorker implements Callable {
@@ -898,7 +1012,7 @@ public class MultiJobBuilder extends Builder implements DependecyDeclarer {
 
     }
 
-    private class MultiJobAction implements Action, QueueAction {
+	private class MultiJobAction implements Action, QueueAction {
         public int buildNumber;
         public int index;
 

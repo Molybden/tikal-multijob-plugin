@@ -55,6 +55,13 @@
                         </f:entry>
                     </f:block>
                 </f:optionalBlock>
+                <f:optionalBlock title="Enable exclusive path" name="enableExclusivePath" inline="true" checked="${instance.enableExclusivePath}" help="/plugin/jenkins-multijob-plugin/help-exclusivePath.html">
+                    <f:block>
+                        <f:entry title="Exclusive Path" field="exclusivePath">
+                            <f:textbox name="exclusivePath" default="" />
+                        </f:entry>
+                    </f:block>
+                </f:optionalBlock>
                 <f:block>
                     <f:hetero-list name="configs" hasHeader="true"
                        descriptors="${descriptor.getBuilderConfigDescriptors()}"
