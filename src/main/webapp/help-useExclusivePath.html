@@ -1,0 +1,19 @@
+<div>
+  	If checked, patterns defined in sub jobs of the MultiJob will be considered when determining which jobs to be executed.
+	This is only valid if ALL paths in a commit are covered by patterns.
+	Example, a commit affects paths:
+	<br/>
+		a/b/c
+	<br/>
+		a/d/e
+	<br/>
+	Say we have a large number of sub jobs but the paths above are only affecting one sub job each. Then there is no need to execute the others.
+	Then define exclusive regex patterns for the two jobs that are unique:
+	<br/>
+		Job A: "a/b/.*"
+	<br/>
+		Job B: "a/d/.*"
+	<br/>
+	- and only the jobs A and B will be executed.
+	If another change (/a/f/g) would be present, then ALL jobs will be executed since we do have exclusive paths for the whole change set.
+</div>

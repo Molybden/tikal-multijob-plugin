@@ -1,38 +1,27 @@
 package com.tikal.jenkins.plugins.multijob;
 
-import java.util.List;
-import java.io.IOException;
-import javax.servlet.ServletException;
-
-import hudson.model.AbstractBuild;
-import hudson.model.Cause;
-import jenkins.model.Jenkins;
-import hudson.Extension;
-import hudson.model.DependencyGraph;
-import hudson.model.ItemGroup;
-import hudson.model.TopLevelItem;
-import hudson.model.Hudson;
-import hudson.model.Project;
-import hudson.model.TaskListener;
-import hudson.model.AbstractProject;
-import hudson.model.Descriptor.FormException;
-import hudson.util.AlternativeUiTextProvider;
-import hudson.scm.PollingResult;
-import hudson.scm.PollingResult.*;
-
 import com.tikal.jenkins.plugins.multijob.views.MultiJobView;
-
+import hudson.Extension;
+import hudson.model.*;
+import hudson.model.Descriptor.FormException;
+import hudson.scm.PollingResult;
+import hudson.util.AlternativeUiTextProvider;
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
-
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
+
+import javax.servlet.ServletException;
+import java.io.IOException;
+import java.util.List;
 
 public class MultiJobProject extends Project<MultiJobProject, MultiJobBuild>
 		implements TopLevelItem {
 
         private volatile boolean pollSubjobs = false;
         private volatile String resumeEnvVars = null;
+	private volatile boolean useExclusivePath;
 
 	@SuppressWarnings("rawtypes")
 	private MultiJobProject(ItemGroup parent, String name) {
@@ -59,6 +48,14 @@ public class MultiJobProject extends Project<MultiJobProject, MultiJobBuild>
 
 	@Extension(ordinal = 1000)
 	public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
+
+	public void setUseExclusivePath(boolean useExclusivePath) {
+		this.useExclusivePath = useExclusivePath;
+	}
+
+	public boolean getUseExclusivePath() {
+		return useExclusivePath;
+	}
 
 	public static final class DescriptorImpl extends AbstractProjectDescriptor {
 		public String getDisplayName() {
@@ -136,26 +133,30 @@ public class MultiJobProject extends Project<MultiJobProject, MultiJobBuild>
         	return !StringUtils.isBlank(resumeEnvVars);
         }
 
-    @Override
-    protected void submit(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, FormException {
-        super.submit(req, rsp);
-        JSONObject json = req.getSubmittedForm();
-        String k = "multijob";
-        if (json.has(k)) {
-            json = json.getJSONObject(k);
-            k = "pollSubjobs";
-            if (json.has(k)) {
-                setPollSubjobs(json.getBoolean(k));
-            }
-            String resumeEnvVars = null;
-            k = "resumeEnvVars";
-            if (json.has(k)) {
-            	json = json.getJSONObject(k);
-                if (json.has(k)) {
-                	resumeEnvVars = json.getString(k);
-                }
-            }
-            setResumeEnvVars(resumeEnvVars);
-        }
-    }
+	@Override
+	protected void submit(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, FormException {
+		super.submit(req, rsp);
+		JSONObject json = req.getSubmittedForm();
+		String k = "multijob";
+		if (json.has(k)) {
+			json = json.getJSONObject(k);
+			k = "pollSubjobs";
+			if (json.has(k)) {
+				setPollSubjobs(json.getBoolean(k));
+			}
+			k = "useExclusivePath";
+			if (json.has(k)) {
+				setUseExclusivePath(json.getBoolean(k));
+			}
+			String resumeEnvVars = null;
+			k = "resumeEnvVars";
+			if (json.has(k)) {
+				json = json.getJSONObject(k);
+				if (json.has(k)) {
+					resumeEnvVars = json.getString(k);
+				}
+			}
+			setResumeEnvVars(resumeEnvVars);
+		}
+	}
 }

@@ -34,7 +34,12 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
+import javax.servlet.ServletException;
+
+import hudson.util.FormValidation;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
@@ -60,6 +65,9 @@ public class PhaseJobsConfig implements Describable<PhaseJobsConfig> {
 	private KillPhaseOnJobResultCondition killPhaseOnJobResultCondition = KillPhaseOnJobResultCondition.NEVER;
 	private boolean buildOnlyIfSCMChanges = false;
 	private boolean applyConditionOnlyIfNoSCMChanges = false;
+	private String exclusivePath;
+	private Pattern exclusivePathPattern;
+	private boolean enableExclusivePath;
 
 	public boolean isBuildOnlyIfSCMChanges() {
 		return this.buildOnlyIfSCMChanges;
@@ -188,7 +196,7 @@ public class PhaseJobsConfig implements Describable<PhaseJobsConfig> {
 			KillPhaseOnJobResultCondition killPhaseOnJobResultCondition,
 			boolean disableJob, boolean enableRetryStrategy,
 			String parsingRulesPath, int maxRetries, boolean enableCondition,
-			boolean abortAllJob, String condition, boolean buildOnlyIfSCMChanges, boolean applyConditionOnlyIfNoSCMChanges) {
+			boolean abortAllJob, String condition, boolean buildOnlyIfSCMChanges, boolean applyConditionOnlyIfNoSCMChanges, boolean enableExclusivePath, String exclusivePath) {
 		this.jobName = jobName;
 		this.jobProperties = jobProperties;
 		this.currParams = currParams;
@@ -202,6 +210,10 @@ public class PhaseJobsConfig implements Describable<PhaseJobsConfig> {
 		}
 		this.parsingRulesPath = Util.fixNull(parsingRulesPath);
 		this.enableCondition = enableCondition;
+		this.enableExclusivePath = enableExclusivePath;
+		if (enableExclusivePath) {
+			setExclusivePath(exclusivePath);
+		}
 		this.abortAllJob = abortAllJob;
 		this.condition = Util.fixNull(condition);
 		this.buildOnlyIfSCMChanges = buildOnlyIfSCMChanges;
@@ -210,6 +222,47 @@ public class PhaseJobsConfig implements Describable<PhaseJobsConfig> {
 
 	public List<AbstractBuildParameters> getConfigs() {
 		return configs;
+	}
+
+	public String getExclusivePath() {
+		return exclusivePath;
+	}
+
+	public void setExclusivePath(String exclusivePath) {
+		this.exclusivePath = exclusivePath;
+		this.exclusivePathPattern = Pattern.compile(exclusivePath);
+	}
+
+	public boolean isEnableExclusivePath() {
+		return enableExclusivePath;
+	}
+
+	public void setEnableExclusivePath(boolean enableExclusivePath) {
+		this.enableExclusivePath = enableExclusivePath;
+	}
+
+	public Pattern getExclusivePathPattern() {
+		return exclusivePathPattern;
+	}
+
+	public boolean getEnableExclusivePath() {
+		return enableExclusivePath;
+	}
+
+	/*
+	TODO: the validation does not work, why?
+	 */
+	@SuppressWarnings("unused")
+	public FormValidation doCheckExclusivePath(@QueryParameter String value) {
+		try {
+			if (value == null || value.trim().isEmpty()){
+				return FormValidation.warning("Pattern should not be empty.");
+			}
+			Pattern.compile(value);
+			return FormValidation.ok();
+		} catch (PatternSyntaxException e) {
+			return FormValidation.error("Not a valid pattern, see java.util.regex.Pattern for details.");
+		}
 	}
 
 	@Extension(optional = true)
