@@ -14,7 +14,6 @@ import org.jenkins_ci.plugins.run_condition.BuildStepRunner;
 import org.jenkins_ci.plugins.run_condition.core.AlwaysRun;
 import org.jenkinsci.plugins.conditionalbuildstep.ConditionalBuilder;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -52,14 +51,14 @@ public class ConditionalPhaseTest {
         final MultiJobProject multi = j.jenkins.createProject(MultiJobProject.class, "MultiTop");
 
         // create 'FirstPhase' containing job 'free'
-        PhaseJobsConfig firstPhase = new PhaseJobsConfig("free", null, true, null, KillPhaseOnJobResultCondition.NEVER, false, false, "", 0, false, false, "",false, false);
+        PhaseJobsConfig firstPhase = new PhaseJobsConfig("free", null, true, null, KillPhaseOnJobResultCondition.NEVER, false, false, "", 0, false, false, "",false, false, false, "");
         List<PhaseJobsConfig> configTopList = new ArrayList<PhaseJobsConfig>();
         configTopList.add(firstPhase);
         MultiJobBuilder firstPhaseBuilder = new MultiJobBuilder("FirstPhase", configTopList, ContinuationCondition.SUCCESSFUL, MultiJobBuilder.ExecutionType.PARALLEL);
         
         
         // create 'SecondPhase' containing job 'free2'
-        PhaseJobsConfig secondPhase = new PhaseJobsConfig("free2", null, true, null, KillPhaseOnJobResultCondition.NEVER, false, false, "", 0, false, false, "",false, false);
+        PhaseJobsConfig secondPhase = new PhaseJobsConfig("free2", null, true, null, KillPhaseOnJobResultCondition.NEVER, false, false, "", 0, false, false, "",false, false, false, "");
         List<PhaseJobsConfig> configTopList2 = new ArrayList<PhaseJobsConfig>();
         configTopList.add(secondPhase);
         MultiJobBuilder secondPhaseBuilder = new MultiJobBuilder("SecondPhase", configTopList2, ContinuationCondition.SUCCESSFUL, MultiJobBuilder.ExecutionType.PARALLEL);
