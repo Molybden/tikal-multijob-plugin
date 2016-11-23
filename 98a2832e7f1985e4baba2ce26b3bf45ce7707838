@@ -1,0 +1,130 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9aa53dc9_e687e6d5",
+        "filename": "src/main/java/com/tikal/jenkins/plugins/multijob/PhaseJobsConfig.java",
+        "patchSetId": 12
+      },
+      "lineNbr": 243,
+      "author": {
+        "id": 1009875
+      },
+      "writtenOn": "2016-11-23T15:18:47Z",
+      "side": 1,
+      "message": "Use SLF4J logging anchors instead of String.format",
+      "revId": "98a2832e7f1985e4baba2ce26b3bf45ce7707838",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9aa53dc9_26f38e75",
+        "filename": "src/test/java/com/tikal/jenkins/plugins/multijob/test/CommitPathTest.java",
+        "patchSetId": 12
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 1009875
+      },
+      "writtenOn": "2016-11-23T15:18:47Z",
+      "side": 1,
+      "message": "Why are these transient? Something to do with the test framework used?",
+      "range": {
+        "startLine": 61,
+        "startChar": 1,
+        "endLine": 61,
+        "endChar": 10
+      },
+      "revId": "98a2832e7f1985e4baba2ce26b3bf45ce7707838",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9aa53dc9_464a1285",
+        "filename": "src/test/java/com/tikal/jenkins/plugins/multijob/test/CommitPathTest.java",
+        "patchSetId": 12
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 1009875
+      },
+      "writtenOn": "2016-11-23T15:18:47Z",
+      "side": 1,
+      "message": "j is not a good name. Please use something more meaningful if possible.",
+      "range": {
+        "startLine": 71,
+        "startChar": 30,
+        "endLine": 71,
+        "endChar": 31
+      },
+      "revId": "98a2832e7f1985e4baba2ce26b3bf45ce7707838",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9aa53dc9_86581a58",
+        "filename": "src/test/java/com/tikal/jenkins/plugins/multijob/test/CommitPathTest.java",
+        "patchSetId": 12
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 1009875
+      },
+      "writtenOn": "2016-11-23T15:18:47Z",
+      "side": 1,
+      "message": "Why do you schedule a build first with an empty change set?",
+      "range": {
+        "startLine": 163,
+        "startChar": 4,
+        "endLine": 163,
+        "endChar": 21
+      },
+      "revId": "98a2832e7f1985e4baba2ce26b3bf45ce7707838",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9aa53dc9_063beaec",
+        "filename": "src/test/java/com/tikal/jenkins/plugins/multijob/test/CommitPathTest.java",
+        "patchSetId": 12
+      },
+      "lineNbr": 188,
+      "author": {
+        "id": 1009875
+      },
+      "writtenOn": "2016-11-23T15:18:47Z",
+      "side": 1,
+      "message": "b and d are easy to confuse, consider using more sensible or semantic names, like:\n\"project/vehicles/truck\"\n\"project/animals/cat\"",
+      "range": {
+        "startLine": 188,
+        "startChar": 19,
+        "endLine": 188,
+        "endChar": 20
+      },
+      "revId": "98a2832e7f1985e4baba2ce26b3bf45ce7707838",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9aa53dc9_4618d284",
+        "filename": "src/test/java/com/tikal/jenkins/plugins/multijob/test/ConditionalPhaseTest.java",
+        "patchSetId": 12
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 1009875
+      },
+      "writtenOn": "2016-11-23T15:18:47Z",
+      "side": 1,
+      "message": "Consider making a new constructor while keeping the old one, and letting the old one specify false, \"\". This is less fragile if people extend or otherwise use / integrate towards this plugin.",
+      "revId": "98a2832e7f1985e4baba2ce26b3bf45ce7707838",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    }
+  ]
+}
